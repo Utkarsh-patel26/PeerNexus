@@ -71,20 +71,6 @@ Copy `config.example.json` to `config.json` and adjust settings:
 
 Set bandwidth limits to `0` for unlimited.
 
-## Architecture
-
-See [architecture.md](architecture.md) for detailed system design.
-
-### Key Components
-
-- **TorrentSession**: Main orchestrator coordinating all download activity
-- **PieceManager**: Tracks piece state and implements selection strategies
-- **DiskManager**: Handles file I/O with caching and concurrent access
-- **Choker**: Implements peer choking/unchoking algorithms
-- **BandwidthLimiter**: Token bucket rate limiting
-- **DHTNode**: Kademlia-based distributed hash table
-- **TrackerClient**: HTTP/UDP tracker communication
-- **PeerConnection**: BitTorrent peer wire protocol
 
 ## Testing
 
