@@ -1,0 +1,27 @@
+﻿# Docker Compose for JTorrent Integration Tests
+# Simplified setup with just Transmission (it has a built-in tracker)
+
+services:
+  seeder:
+    image: linuxserver/transmission:latest
+    container_name: jtorrent-test-seeder
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=UTC
+      - USER=admin
+      - PASS=admin
+    volumes:
+      - ./test-data/seed-data:/downloads
+      - ./test-data/seeder-config:/config
+      - ./test-data/torrents:/watch
+    ports:
+      - "9091:9091"
+      - "51413:51413"
+      - "51413:51413/udp"
+    networks:
+      - torrent-net
+
+networks:
+  torrent-net:
+    driver: bridge

@@ -1,0 +1,15 @@
+{
+  "port": 6881,
+  "maxPeers": 50,
+  "listenAddress": "0.0.0.0",
+  "uploadSlots": 4,
+  "maxUploadKBps": 0,
+  "maxDownloadKBps": 0,
+  "downloadDirectory": "./downloads",
+  "stateDirectory": "./state",
+  "dhtEnabled": true,
+  "pexEnabled": true,
+  "logLevel": "INFO",
+  "logFile": "./logs/jtorrent.log",
+  "encryptionEnabled": false
+}
