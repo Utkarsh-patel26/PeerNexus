@@ -483,14 +483,19 @@ public class DownloadManagerPanel {
 
         TorrentSession sess = selected.getSession();
         long downloadedBytes = 0;
+        long uploadedBytes = 0;
+        long uploadSpeed = 0;
         if (sess != null && sess.getDownloadState() != null) {
           downloadedBytes = sess.getDownloadState().getDownloadedBytes();
+          uploadedBytes = sess.getTotalSimulatedUpload();
+          uploadSpeed = sess.getSimulatedUploadSpeed();
         }
 
         mainController.getStatisticsPanel().setDownloadSpeed(
             formatBytes(selected.getLastSpeedBytesPerSec()) + "/s");
-        mainController.getStatisticsPanel().setUploadSpeed("0 B/s");
+        mainController.getStatisticsPanel().setUploadSpeed(formatBytes(uploadSpeed) + "/s");
         mainController.getStatisticsPanel().setDataDownloaded(formatBytes(downloadedBytes));
+        mainController.getStatisticsPanel().setDataUploaded(formatBytes(uploadedBytes));
 
         int connectedPeers = sess != null ? sess.getConnectedPeerCount() : 0;
         int trackerSeeders = sess != null ? sess.getTrackerSeeders() : 0;

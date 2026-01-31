@@ -18,8 +18,8 @@ import java.util.List;
  * Request scheduling and pipeline management for block requests.
  */
 public class RequestScheduler {
-    private static final int PIPELINE_GOAL = 50;
-    private static final int MAX_REQUESTS_PER_PEER = 5;
+    private static final int PIPELINE_GOAL = 200; // Increased from 50 for better throughput
+    private static final int MAX_REQUESTS_PER_PEER = 15; // Increased from 5 for better pipelining
 
     private final BlockRequestTracker requestTracker;
     private final PieceManager pieceManager;
@@ -50,23 +50,24 @@ public class RequestScheduler {
             return;
         }
 
-        // Clean up stale requests - track peers already cancelled to avoid duplicates
+        // Clean up stale requests - remove INDIVIDUAL stale requests, not all from peer
+        // This is more efficient and doesn't punish peers for single slow responses
         List<BlockRequest> staleRequests = requestTracker.getStaleRequests();
-        java.util.Set<InetSocketAddress> cancelledPeers = new java.util.HashSet<>();
-
+        int staleCount = 0;
         for (BlockRequest stale : staleRequests) {
-            if (stale == null || stale.getPeer() == null) {
+            if (stale == null) {
                 continue;
             }
-
-            InetSocketAddress peer = stale.getPeer();
-            if (!cancelledPeers.contains(peer)) {
-                logger.debug("Stale request cancelled: piece=%d offset=%d peer=%s",
-                        stale.getPieceIndex(), stale.getOffset(), peer);
-                int cancelled = requestTracker.cancelPeerRequests(peer);
-                cancelledPeers.add(peer);
-                logger.debug("Cancelled %d requests from peer %s", cancelled, peer);
+            // Remove just this one stale request, not all from the peer
+            boolean removed = requestTracker.fulfillRequest(stale.getPieceIndex(), stale.getOffset());
+            if (removed) {
+                staleCount++;
+                logger.debug("Stale request removed: piece=%d offset=%d peer=%s (timeout after 15s)",
+                        stale.getPieceIndex(), stale.getOffset(), stale.getPeer());
             }
+        }
+        if (staleCount > 0) {
+            logger.info("[SCHEDULER] Cleaned up %d stale requests", staleCount);
         }
 
         // Fill pipeline to goal
@@ -81,6 +82,12 @@ public class RequestScheduler {
         // Issue requests to active peers
         int requestsIssued = 0;
         for (ActivePeer activePeer : activePeers) {
+            // CRITICAL: Skip disconnected peers first to avoid "Not connected" errors
+            if (!activePeer.isConnected()) {
+                logger.debug("[SCHEDULER] Skipping disconnected peer %s", activePeer.getAddress());
+                continue;
+            }
+
             if (activePeer.isDeprioritized()) {
                 logger.debug("[SCHEDULER] Skipping deprioritized peer %s", activePeer.getAddress());
                 continue; // Skip deprioritized peers
@@ -133,6 +140,12 @@ public class RequestScheduler {
     private boolean issueRequestToPeer(ActivePeer activePeer) {
         if (activePeer == null) {
             logger.debug("[ISSUE_REQUEST] activePeer is null");
+            return false;
+        }
+
+        // CRITICAL: Check connection health before attempting to send
+        if (!activePeer.isConnected()) {
+            logger.debug("[ISSUE_REQUEST] Peer %s is not connected", activePeer.getAddress());
             return false;
         }
 
@@ -231,6 +244,10 @@ public class RequestScheduler {
         // Quick refill for responsive downloading
         for (ActivePeer activePeer : activePeers) {
             if (activePeer == null) {
+                continue;
+            }
+            // CRITICAL: Skip disconnected peers
+            if (!activePeer.isConnected()) {
                 continue;
             }
             if (activePeer.isDeprioritized() || activePeer.isPeerChoking()) {

@@ -15,9 +15,9 @@ import java.util.concurrent.CopyOnWriteArrayList;
  */
 public class BlockRequestTracker {
 
-    private static final long REQUEST_TIMEOUT_MS = 30000; // 30 seconds
-    private static final int MAX_REQUESTS_PER_PEER = 10;
-    private static final int MAX_TOTAL_REQUESTS = 50;
+    private static final long REQUEST_TIMEOUT_MS = 15000; // 15 seconds (reduced from 30s for faster recovery)
+    private static final int MAX_REQUESTS_PER_PEER = 25; // Increased from 10 for better pipelining
+    private static final int MAX_TOTAL_REQUESTS = 200; // Increased from 50 for modern throughput
 
     private final List<BlockRequest> outstandingRequests = new CopyOnWriteArrayList<>();
     private final Map<InetSocketAddress, Integer> requestCountPerPeer = new ConcurrentHashMap<>();

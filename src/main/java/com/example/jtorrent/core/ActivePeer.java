@@ -42,6 +42,15 @@ public class ActivePeer {
         return connection.peerChoking();
     }
 
+    /**
+     * Check if the peer connection is still alive and usable.
+     * 
+     * @return true if connected and ready for requests
+     */
+    public boolean isConnected() {
+        return connection != null && connection.isConnected();
+    }
+
     public boolean isDeprioritized() {
         return deprioritized;
     }

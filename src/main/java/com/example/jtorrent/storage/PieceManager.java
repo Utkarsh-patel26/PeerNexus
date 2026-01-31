@@ -232,6 +232,8 @@ public class PieceManager {
         return selectRandomPiece(peerBitfield);
       case RAREST_FIRST:
         return selectRarestPiece(peerBitfield);
+      case SEQUENTIAL:
+        return selectSequentialPiece(peerBitfield);
       case ENDGAME:
         return selectEndgamePiece(peerBitfield);
       default:
@@ -339,6 +341,28 @@ public class PieceManager {
   private int selectEndgamePiece(BitSet peerBitfield) {
     lock.readLock().lock();
     try {
+      for (int i = 0; i < pieceCount; i++) {
+        if (peerBitfield.get(i) && pieceStates[i] != PieceState.COMPLETE) {
+          return i;
+        }
+      }
+      return -1;
+    } finally {
+      lock.readLock().unlock();
+    }
+  }
+
+  /**
+   * Select pieces in sequential order from first to last.
+   * Useful for streaming/previewing media files.
+   *
+   * @param peerBitfield the peer's bitfield
+   * @return piece index or -1
+   */
+  private int selectSequentialPiece(BitSet peerBitfield) {
+    lock.readLock().lock();
+    try {
+      // Find first missing or downloading piece that peer has
       for (int i = 0; i < pieceCount; i++) {
         if (peerBitfield.get(i) && pieceStates[i] != PieceState.COMPLETE) {
           return i;

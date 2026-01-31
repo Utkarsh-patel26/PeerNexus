@@ -1,5 +1,6 @@
 package com.example.jtorrent.scheduler;
 
+import com.example.jtorrent.core.PeerScoring;
 import com.example.jtorrent.logging.Logger;
 import com.example.jtorrent.peer.PeerConnection;
 import java.net.InetSocketAddress;
@@ -14,7 +15,7 @@ import java.util.stream.Collectors;
 
 /**
  * Manages peer connections with limits and performance-based prioritization.
- * 
+ *
  * <p>
  * Features:
  * <ul>
@@ -22,6 +23,7 @@ import java.util.stream.Collectors;
  * <li>Per-torrent peer limit (~80 connections)
  * <li>Automatic dropping of slow/unresponsive peers
  * <li>Priority queue based on peer performance
+ * <li>Integration with PeerScoring for misbehavior tracking
  * <li>Connection pool management
  * </ul>
  */
@@ -42,6 +44,9 @@ public class PeerConnectionManager {
     private final PriorityBlockingQueue<ManagedPeerConnection> peerQueue;
     private final AtomicInteger totalConnections;
 
+    // Peer behavior scoring (misbehavior tracking)
+    private PeerScoring peerScoring;
+
     // Cleanup thread
     private volatile boolean running = true;
     private Thread cleanupThread;
@@ -55,6 +60,7 @@ public class PeerConnectionManager {
         public final PeerStats stats;
         public final String torrentId;
         private volatile boolean closed = false;
+        private double combinedScore = 0.0;
 
         public ManagedPeerConnection(
                 InetSocketAddress address,
@@ -75,10 +81,28 @@ public class PeerConnectionManager {
             closed = true;
         }
 
+        /**
+         * Set combined score factoring in both performance and behavior.
+         *
+         * @param score combined score
+         */
+        public void setCombinedScore(double score) {
+            this.combinedScore = score;
+        }
+
+        /**
+         * Get combined score.
+         *
+         * @return combined score
+         */
+        public double getCombinedScore() {
+            return combinedScore > 0 ? combinedScore : stats.getQualityScore();
+        }
+
         @Override
         public int compareTo(ManagedPeerConnection other) {
-            // Higher quality score = higher priority
-            return Double.compare(other.stats.getQualityScore(), this.stats.getQualityScore());
+            // Higher combined score = higher priority
+            return Double.compare(other.getCombinedScore(), this.getCombinedScore());
         }
     }
 
@@ -86,14 +110,33 @@ public class PeerConnectionManager {
      * Create peer connection manager.
      */
     public PeerConnectionManager() {
+        this(null);
+    }
+
+    /**
+     * Create peer connection manager with peer scoring integration.
+     *
+     * @param peerScoring the peer scoring system for misbehavior tracking
+     */
+    public PeerConnectionManager(PeerScoring peerScoring) {
         this.activePeers = new ConcurrentHashMap<>();
         this.peersByTorrent = new ConcurrentHashMap<>();
         this.peerQueue = new PriorityBlockingQueue<>(
                 MAX_GLOBAL_PEERS,
-                Comparator.comparingDouble(p -> -p.stats.getQualityScore()));
+                Comparator.comparingDouble(p -> -p.getCombinedScore()));
         this.totalConnections = new AtomicInteger(0);
+        this.peerScoring = peerScoring;
 
         startCleanupThread();
+    }
+
+    /**
+     * Set the peer scoring system.
+     *
+     * @param peerScoring the peer scoring system
+     */
+    public void setPeerScoring(PeerScoring peerScoring) {
+        this.peerScoring = peerScoring;
     }
 
     /**
@@ -103,13 +146,19 @@ public class PeerConnectionManager {
      * @param connection peer connection
      * @param stats      peer statistics
      * @param torrentId  torrent identifier
-     * @return true if registered, false if rejected due to limits
+     * @return true if registered, false if rejected due to limits or ban
      */
     public boolean registerPeer(
             InetSocketAddress address,
             PeerConnection connection,
             PeerStats stats,
             String torrentId) {
+
+        // Check if peer is banned
+        if (peerScoring != null && peerScoring.isBanned(address)) {
+            logger.debug("Rejecting banned peer %s", address);
+            return false;
+        }
 
         // Check global limit
         if (totalConnections.get() >= MAX_GLOBAL_PEERS) {
@@ -123,13 +172,16 @@ public class PeerConnectionManager {
                 torrentId, k -> new ArrayList<>());
 
         synchronized (torrentPeers) {
+            // Calculate combined score for new peer
+            double newPeerScore = calculateCombinedScore(address, stats);
+
             if (torrentPeers.size() >= MAX_PEERS_PER_TORRENT) {
                 // Try to evict worst peer
                 ManagedPeerConnection worstPeer = findWorstPeer(torrentPeers);
-                if (worstPeer != null && worstPeer.stats.getQualityScore() < stats.getQualityScore()) {
+                if (worstPeer != null && worstPeer.getCombinedScore() < newPeerScore) {
                     logger.info("Evicting low-quality peer %s (score=%.1f) for %s (score=%.1f)",
-                            worstPeer.address, worstPeer.stats.getQualityScore(),
-                            address, stats.getQualityScore());
+                            worstPeer.address, worstPeer.getCombinedScore(),
+                            address, newPeerScore);
                     removePeer(worstPeer.address, "replaced by better peer");
                 } else {
                     logger.debug("Per-torrent peer limit reached (%d) for %s, rejecting peer %s",
@@ -140,6 +192,7 @@ public class PeerConnectionManager {
 
             ManagedPeerConnection managed = new ManagedPeerConnection(
                     address, connection, stats, torrentId);
+            managed.setCombinedScore(newPeerScore);
 
             activePeers.put(address, managed);
             torrentPeers.add(managed);
@@ -235,13 +288,20 @@ public class PeerConnectionManager {
     }
 
     /**
-     * Cleanup slow and unresponsive peers.
+     * Cleanup slow, unresponsive, and misbehaving peers.
      */
     private void cleanup() {
         List<InetSocketAddress> toRemove = new ArrayList<>();
 
         for (ManagedPeerConnection managed : activePeers.values()) {
             if (managed.isClosed()) {
+                toRemove.add(managed.address);
+                continue;
+            }
+
+            // Check if peer became banned
+            if (peerScoring != null && peerScoring.isBanned(managed.address)) {
+                logger.info("Removing banned peer %s", managed.address);
                 toRemove.add(managed.address);
                 continue;
             }
@@ -272,13 +332,15 @@ public class PeerConnectionManager {
                 continue;
             }
 
-            // Update stats
+            // Update stats and combined score
             stats.updateRates(5000);
+            double newScore = calculateCombinedScore(managed.address, stats);
+            managed.setCombinedScore(newScore);
         }
 
         // Remove bad peers
         for (InetSocketAddress address : toRemove) {
-            removePeer(address, "performance/timeout");
+            removePeer(address, "performance/timeout/banned");
         }
 
         if (!toRemove.isEmpty()) {
@@ -293,8 +355,77 @@ public class PeerConnectionManager {
     private ManagedPeerConnection findWorstPeer(List<ManagedPeerConnection> peers) {
         return peers.stream()
                 .filter(p -> !p.isClosed())
-                .min(Comparator.comparingDouble(p -> p.stats.getQualityScore()))
+                .min(Comparator.comparingDouble(ManagedPeerConnection::getCombinedScore))
                 .orElse(null);
+    }
+
+    /**
+     * Calculate combined score factoring in both performance and behavior.
+     * Performance score from PeerStats is weighted with behavior score from
+     * PeerScoring.
+     *
+     * @param address peer address
+     * @param stats   performance stats
+     * @return combined score (0-200, higher is better)
+     */
+    private double calculateCombinedScore(InetSocketAddress address, PeerStats stats) {
+        // Performance score (0-100)
+        double performanceScore = stats.getQualityScore();
+
+        // Behavior score from PeerScoring (0-150, higher is better)
+        double behaviorScore = 100.0; // Default for new peers
+        if (peerScoring != null) {
+            int peerScore = peerScoring.getPeerScore(address);
+            if (peerScore >= 0) {
+                // Normalize to 0-100 range (original range is 0-150)
+                behaviorScore = (peerScore / 150.0) * 100.0;
+            } else {
+                // Banned peer
+                return -1.0;
+            }
+
+            // Apply deprioritization penalty
+            if (peerScoring.shouldDeprioritize(address)) {
+                behaviorScore *= 0.5; // 50% penalty for misbehaving peers
+            }
+        }
+
+        // Combined score: 60% performance, 40% behavior
+        return (performanceScore * 0.6) + (behaviorScore * 0.4);
+    }
+
+    /**
+     * Update combined scores for all active peers.
+     * Should be called periodically to reflect behavior changes.
+     */
+    public void updateAllScores() {
+        for (ManagedPeerConnection managed : activePeers.values()) {
+            if (!managed.isClosed()) {
+                double newScore = calculateCombinedScore(managed.address, managed.stats);
+                managed.setCombinedScore(newScore);
+            }
+        }
+    }
+
+    /**
+     * Get peers sorted by combined score for a specific torrent.
+     *
+     * @param torrentId torrent identifier
+     * @param count     max number of peers to return
+     * @return sorted list of peers (best first)
+     */
+    public List<ManagedPeerConnection> getBestPeersForTorrent(String torrentId, int count) {
+        List<ManagedPeerConnection> torrentPeers = peersByTorrent.get(torrentId);
+        if (torrentPeers == null) {
+            return new ArrayList<>();
+        }
+
+        return torrentPeers.stream()
+                .filter(p -> !p.isClosed())
+                .sorted(Comparator.comparingDouble(
+                        (ManagedPeerConnection p) -> p.getCombinedScore()).reversed())
+                .limit(count)
+                .collect(Collectors.toList());
     }
 
     /**
@@ -343,16 +474,18 @@ public class PeerConnectionManager {
      * @return stats summary string
      */
     public String getStatsSummary() {
+        int bannedCount = peerScoring != null ? peerScoring.getBannedPeers().size() : 0;
         return String.format(
-                "Peers: %d/%d global | Avg Quality: %.1f | Top 5: %s",
+                "Peers: %d/%d global | Banned: %d | Avg Score: %.1f | Top 5: %s",
                 totalConnections.get(),
                 MAX_GLOBAL_PEERS,
+                bannedCount,
                 activePeers.values().stream()
-                        .mapToDouble(p -> p.stats.getQualityScore())
+                        .mapToDouble(ManagedPeerConnection::getCombinedScore)
                         .average()
                         .orElse(0.0),
                 getTopPeers(5).stream()
-                        .map(p -> String.format("%.0f", p.stats.getQualityScore()))
+                        .map(p -> String.format("%.0f", p.getCombinedScore()))
                         .collect(Collectors.joining(", ")));
     }
 }

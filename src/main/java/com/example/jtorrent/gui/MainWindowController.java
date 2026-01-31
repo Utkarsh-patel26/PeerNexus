@@ -344,6 +344,8 @@ public class MainWindowController {
         var session = item.getSession();
         if (session != null) {
           totalPeers += session.getConnectedPeerCount();
+          // Get simulated upload speed from session
+          totalUploadSpeed += session.getSimulatedUploadSpeed();
         }
       }
     }

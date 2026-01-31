@@ -17,6 +17,12 @@ public enum PieceSelectionStrategy {
     RAREST_FIRST,
 
     /**
+     * Sequential: Download pieces in order from first to last.
+     * Useful for streaming/previewing media files.
+     */
+    SEQUENTIAL,
+
+    /**
      * Endgame: Request all remaining blocks from multiple peers.
      * Used when close to completion to finish quickly.
      */
