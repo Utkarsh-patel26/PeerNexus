@@ -17,7 +17,6 @@ public final class JsonResponse {
         return toJson(Map.of("success", false, "error", message));
     }
 
-    @SuppressWarnings("unchecked")
     public static Map<String, Object> parse(String json) {
         Map<String, Object> result = new HashMap<>();
         if (json == null || json.isEmpty()) {

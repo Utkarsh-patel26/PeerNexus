@@ -21,6 +21,7 @@ public class PerformanceMetrics implements AutoCloseable {
     private final Map<String, Histogram> histograms = new ConcurrentHashMap<>();
 
     private final ScheduledExecutorService scheduler;
+    @SuppressWarnings("unused") // Stored for future reference/logging
     private final long logIntervalSeconds;
 
     /**

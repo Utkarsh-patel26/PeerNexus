@@ -4,7 +4,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
 import static org.junit.jupiter.api.Assertions.*;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
@@ -17,7 +16,8 @@ class TorrentFileTest {
         // This test requires a real torrent file which we don't have
         // So we test the basic structure
         assertDoesNotThrow(() -> {
-            Map<String, Object> torrentData = Map.of(
+            // Verify that Map.of works with nested structures for torrent metadata
+            Map.of(
                     "announce", "http://tracker.example.com/announce",
                     "info", Map.of(
                             "name", "test",

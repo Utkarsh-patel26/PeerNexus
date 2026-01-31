@@ -11,6 +11,7 @@ public class StreamingManager {
     private static final Logger logger = Logger.getLogger(StreamingManager.class);
 
     private static final long DEFAULT_BUFFER_SIZE = 50 * 1024 * 1024;
+    @SuppressWarnings("unused") // Reserved for future preload implementation
     private static final int PRELOAD_PIECES = 10;
 
     private final ConcurrentHashMap<String, StreamingSession> sessions = new ConcurrentHashMap<>();
@@ -71,9 +72,12 @@ public class StreamingManager {
 
     public static class StreamingSession {
         private final TorrentSession torrentSession;
+        @SuppressWarnings("unused") // Reserved for file selection in streaming
         private final int fileIndex;
+        @SuppressWarnings("unused") // Reserved for buffer management
         private final long bufferSize;
         private final AtomicBoolean running = new AtomicBoolean(false);
+        @SuppressWarnings("unused") // Updated by readData for tracking
         private long currentPosition = 0;
 
         StreamingSession(TorrentSession torrentSession, int fileIndex, long bufferSize) {

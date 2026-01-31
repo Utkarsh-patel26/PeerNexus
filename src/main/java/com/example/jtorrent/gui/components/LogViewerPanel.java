@@ -9,7 +9,6 @@ import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
-import javafx.scene.paint.Color;
 
 import java.util.List;
 import java.util.Set;
@@ -231,7 +230,7 @@ public class LogViewerPanel extends VBox {
         TableColumn<LogEntry, String> messageCol = new TableColumn<>("Message");
         messageCol.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getMessage()));
 
-        table.getColumns().addAll(timeCol, levelCol, categoryCol, threadCol, messageCol);
+        table.getColumns().addAll(List.of(timeCol, levelCol, categoryCol, threadCol, messageCol));
 
         // Context menu
         ContextMenu contextMenu = new ContextMenu();

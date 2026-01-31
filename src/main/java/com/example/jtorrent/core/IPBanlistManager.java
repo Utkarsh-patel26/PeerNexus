@@ -292,6 +292,7 @@ public class IPBanlistManager {
     /**
      * Convert a long value to an IP address string.
      */
+    @SuppressWarnings("unused") // Reserved for future logging/display use
     private String longToIP(long ip) {
         return String.format("%d.%d.%d.%d",
                 (ip >> 24) & 0xFF,

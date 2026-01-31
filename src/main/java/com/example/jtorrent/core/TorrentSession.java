@@ -14,12 +14,9 @@ import com.example.jtorrent.scheduler.BandwidthLimiter;
 import com.example.jtorrent.scheduler.Choker;
 import com.example.jtorrent.scheduler.PeerConnectionManager;
 import com.example.jtorrent.scheduler.PeerStats;
-import com.example.jtorrent.storage.BlockInfo;
-import com.example.jtorrent.storage.BlockRequest;
 import com.example.jtorrent.storage.BlockRequestTracker;
 import com.example.jtorrent.storage.DiskManager;
 import com.example.jtorrent.storage.PieceManager;
-import com.example.jtorrent.storage.PieceSelectionStrategy;
 import com.example.jtorrent.storage.PieceState;
 import com.example.jtorrent.storage.PieceVerifier;
 import com.example.jtorrent.tracker.AnnounceRequest;
@@ -76,7 +73,8 @@ public class TorrentSession {
   private DiskManager diskManager;
   private PieceVerifier pieceVerifier; // TODO: Integrate piece verification
   private Choker choker;
-  private BandwidthLimiter bandwidthLimiter; // TODO: Integrate bandwidth limiting
+  @SuppressWarnings("unused") // TODO: Integrate bandwidth limiting
+  private BandwidthLimiter bandwidthLimiter;
   private PeerConnectionManager connectionManager;
   private BlockRequestTracker requestTracker;
   private TransferStats transferStats;
@@ -1694,7 +1692,6 @@ public class TorrentSession {
       final long maxTime = 300000; // 5 minutes per peer
       long lastSuccessTime = System.currentTimeMillis();
       final long maxIdleTime = 30000; // 30 seconds without progress = move on
-      long lastStatsLog = System.currentTimeMillis();
 
       // Track peer stats
       transferStats.recordPeerConnected();
@@ -1950,6 +1947,7 @@ public class TorrentSession {
    * @param peerBitfield the peer's bitfield (may be null)
    * @return piece index, or -1 if no suitable piece
    */
+  @SuppressWarnings("unused") // Reserved for future use
   private int selectNextPieceForPeer(java.util.BitSet peerBitfield) {
     // If peer has no bitfield, we don't know what they have
     if (peerBitfield == null) {

@@ -1,10 +1,8 @@
 package com.example.jtorrent.rss;
 
 import com.example.jtorrent.events.EventBus;
-import com.example.jtorrent.events.TorrentAddedEvent;
 import com.example.jtorrent.logging.Logger;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.*;
@@ -17,6 +15,7 @@ public class RSSManager {
     private final Logger logger;
     private final RSSParser parser;
     private final RSSDownloader downloader;
+    @SuppressWarnings("unused") // Reserved for future event publishing
     private final EventBus eventBus;
     private final List<RSSFeed> feeds;
     private final Set<String> downloadedItems; // Track to prevent duplicates

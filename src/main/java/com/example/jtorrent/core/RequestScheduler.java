@@ -3,7 +3,6 @@ package com.example.jtorrent.core;
 import com.example.jtorrent.logging.Logger;
 import com.example.jtorrent.peer.Message;
 import com.example.jtorrent.peer.PeerConnection;
-import com.example.jtorrent.scheduler.PeerStats;
 import com.example.jtorrent.storage.BlockInfo;
 import com.example.jtorrent.storage.BlockRequest;
 import com.example.jtorrent.storage.BlockRequestTracker;
@@ -11,7 +10,6 @@ import com.example.jtorrent.storage.PieceManager;
 import com.example.jtorrent.storage.PieceSelectionStrategy;
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.util.ArrayList;
 import java.util.List;
 
 /**

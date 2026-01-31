@@ -205,6 +205,8 @@ public final class AdvancedQueueManager implements AutoCloseable {
                 }
                 case QUEUED -> queued++;
                 case PAUSED -> paused++;
+                case STOPPED -> {
+                    /* Not counted in active stats */ }
             }
         }
         return new QueueStats(downloading, seeding, queued, paused,

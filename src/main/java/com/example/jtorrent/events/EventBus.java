@@ -45,7 +45,6 @@ public class EventBus {
      * @param handler   the event handler
      * @param <T>       event type
      */
-    @SuppressWarnings("unchecked")
     public <T extends TorrentEvent> void subscribe(Class<T> eventType, Consumer<T> handler) {
         subscribers.computeIfAbsent(eventType, k -> new CopyOnWriteArrayList<>())
                 .add((Consumer<? extends TorrentEvent>) handler);

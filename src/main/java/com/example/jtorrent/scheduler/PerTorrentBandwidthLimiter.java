@@ -1,7 +1,6 @@
 package com.example.jtorrent.scheduler;
 
 import com.example.jtorrent.logging.Logger;
-import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -271,7 +270,9 @@ public class PerTorrentBandwidthLimiter extends BandwidthLimiter {
     public static class TorrentBandwidthStats {
         private long totalUploaded = 0;
         private long totalDownloaded = 0;
+        @SuppressWarnings("unused") // Updated by recordUpload for tracking
         private long lastUploadTime = System.currentTimeMillis();
+        @SuppressWarnings("unused") // Updated by recordDownload for tracking
         private long lastDownloadTime = System.currentTimeMillis();
         private long uploadedLastSecond = 0;
         private long downloadedLastSecond = 0;

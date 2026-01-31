@@ -15,6 +15,7 @@ public final class PcpManager implements AutoCloseable {
     private static final int PCP_PORT = 5351;
     private static final byte VERSION = 2;
     private static final byte OP_MAP = 1;
+    @SuppressWarnings("unused") // Reserved for future PEER operations
     private static final byte OP_PEER = 2;
     private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(3);
     private static final Duration REFRESH_BEFORE_EXPIRY = Duration.ofMinutes(5);
@@ -108,8 +109,8 @@ public final class PcpManager implements AutoCloseable {
 
     private MappingResult parseMapResponse(ByteBuffer response, Protocol protocol,
             int internalPort) throws UnknownHostException {
-        byte version = response.get();
-        byte opcode = response.get();
+        response.get(); // version - not needed
+        response.get(); // opcode - not needed
         response.get();
         byte resultCode = response.get();
 

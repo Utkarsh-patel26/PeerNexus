@@ -1,8 +1,6 @@
 package com.example.jtorrent.gui.components;
 
-import com.example.jtorrent.core.ActivePeer;
 import com.example.jtorrent.core.TorrentSession;
-import com.example.jtorrent.logging.Logger;
 import com.example.jtorrent.parser.FileEntry;
 import com.example.jtorrent.parser.TorrentFile;
 import javafx.geometry.Insets;
@@ -29,8 +27,6 @@ import java.util.Map;
  * 5. Piece Map - Visual representation of downloaded pieces
  */
 public class TorrentInfoPanel extends TabPane {
-
-    private static final Logger logger = Logger.getLogger(TorrentInfoPanel.class);
 
     private final TorrentSession session;
     private PeerListPanel peerListPanel;
@@ -220,7 +216,7 @@ public class TorrentInfoPanel extends TabPane {
         leechersCol.setCellValueFactory(cellData -> cellData.getValue().leechersProperty());
         leechersCol.setPrefWidth(80);
 
-        trackerTable.getColumns().addAll(urlCol, statusCol, seedersCol, leechersCol);
+        trackerTable.getColumns().addAll(List.of(urlCol, statusCol, seedersCol, leechersCol));
 
         // Add trackers from torrent file
         TorrentFile torrentFile = session.getTorrentFile();
@@ -324,6 +320,7 @@ public class TorrentInfoPanel extends TabPane {
     /**
      * Helper: Convert bytes to hex string.
      */
+    @SuppressWarnings("unused") // Reserved for future use
     private String bytesToHex(byte[] bytes) {
         StringBuilder sb = new StringBuilder();
         for (byte b : bytes) {

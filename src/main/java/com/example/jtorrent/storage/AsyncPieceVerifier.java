@@ -13,6 +13,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 public final class AsyncPieceVerifier implements AutoCloseable {
+    @SuppressWarnings("unused") // Used for internal reading operations
     private static final int BUFFER_SIZE = 256 * 1024;
 
     private final byte[][] pieceHashes;

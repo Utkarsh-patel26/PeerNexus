@@ -38,7 +38,9 @@ public class FileListPanel extends BorderPane {
 
     private void initializeUI() {
         fileTable = new TableView<>();
-        fileTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        @SuppressWarnings("deprecation")
+        var policy = TableView.CONSTRAINED_RESIZE_POLICY;
+        fileTable.setColumnResizePolicy(policy);
 
         // Name column
         TableColumn<FileInfo, String> nameCol = new TableColumn<>("File Name");
@@ -75,7 +77,7 @@ public class FileListPanel extends BorderPane {
         priorityCol.setCellValueFactory(data -> data.getValue().priorityProperty());
         priorityCol.setPrefWidth(100);
 
-        fileTable.getColumns().addAll(nameCol, sizeCol, progressCol, priorityCol);
+        fileTable.getColumns().addAll(List.of(nameCol, sizeCol, progressCol, priorityCol));
         fileTable.setItems(files);
 
         VBox.setVgrow(fileTable, Priority.ALWAYS);

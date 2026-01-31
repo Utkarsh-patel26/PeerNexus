@@ -1,7 +1,6 @@
 package com.example.jtorrent.gui.components;
 
 import com.example.jtorrent.core.TransferStats;
-import com.example.jtorrent.logging.Logger;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.application.Platform;
@@ -18,6 +17,7 @@ import javafx.scene.layout.VBox;
 import javafx.util.Duration;
 
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Queue;
 
 /**
@@ -30,8 +30,6 @@ import java.util.Queue;
  * - Auto-refresh every second
  */
 public class SpeedGraph extends BorderPane {
-
-    private static final Logger logger = Logger.getLogger(SpeedGraph.class);
 
     private final TransferStats stats;
     private LineChart<Number, Number> chart;
@@ -173,7 +171,7 @@ public class SpeedGraph extends BorderPane {
         uploadSeries = new XYChart.Series<>();
         uploadSeries.setName("Upload");
 
-        lineChart.getData().addAll(downloadSeries, uploadSeries);
+        lineChart.getData().addAll(List.of(downloadSeries, uploadSeries));
 
         // Apply CSS styles
         lineChart.lookup(".chart-series-line.series0").setStyle("-fx-stroke: #4CAF50; -fx-stroke-width: 2px;");

@@ -15,6 +15,7 @@ public final class LabelManager {
     private final Map<String, Set<String>> torrentLabels = new ConcurrentHashMap<>();
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
     private final Path persistPath;
+    @SuppressWarnings("unused") // Reserved for future event publishing
     private final EventBus eventBus;
 
     public LabelManager(Path persistPath, EventBus eventBus) {
@@ -165,7 +166,6 @@ public final class LabelManager {
         }
     }
 
-    @SuppressWarnings("unchecked")
     private void load() {
         if (!Files.exists(persistPath)) {
             return;

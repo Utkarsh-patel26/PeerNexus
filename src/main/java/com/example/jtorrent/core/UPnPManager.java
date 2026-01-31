@@ -9,9 +9,8 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.HttpURLConnection;
 import java.net.InetAddress;
-import java.net.InetSocketAddress;
+import java.net.URI;
 import java.net.URL;
-import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -36,6 +35,7 @@ public class UPnPManager {
     private String gatewayLocation;
     private String controlUrl;
     private String serviceType;
+    @SuppressWarnings("unused") // Reserved for future local network detection
     private InetAddress localAddress;
 
     /**
@@ -114,7 +114,7 @@ public class UPnPManager {
             return false;
 
         try {
-            URL url = new URL(gatewayLocation);
+            URL url = URI.create(gatewayLocation).toURL();
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setConnectTimeout(5000);
             conn.setReadTimeout(5000);
@@ -148,7 +148,7 @@ public class UPnPManager {
                             String ctrlPath = xml.substring(ctrlIdx + 12, endIdx);
 
                             // Build full control URL
-                            URL base = new URL(gatewayLocation);
+                            URL base = URI.create(gatewayLocation).toURL();
                             if (ctrlPath.startsWith("/")) {
                                 controlUrl = base.getProtocol() + "://" + base.getHost() +
                                         (base.getPort() > 0 ? ":" + base.getPort() : "") + ctrlPath;
@@ -300,7 +300,7 @@ public class UPnPManager {
                     "</s:Body>\r\n" +
                     "</s:Envelope>";
 
-            URL url = new URL(controlUrl);
+            URL url = URI.create(controlUrl).toURL();
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("POST");
             conn.setDoOutput(true);
@@ -342,7 +342,7 @@ public class UPnPManager {
      * Send a SOAP request to the gateway.
      */
     private int sendSoapRequest(String action, String body) throws IOException {
-        URL url = new URL(controlUrl);
+        URL url = URI.create(controlUrl).toURL();
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         conn.setRequestMethod("POST");
         conn.setDoOutput(true);

@@ -4,7 +4,6 @@ import com.example.jtorrent.logging.Logger;
 import java.net.InetSocketAddress;
 import java.util.BitSet;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;

@@ -37,7 +37,9 @@ public class TrackerListPanel extends BorderPane {
 
     private void initializeUI() {
         trackerTable = new TableView<>();
-        trackerTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        @SuppressWarnings("deprecation")
+        var policy = TableView.CONSTRAINED_RESIZE_POLICY;
+        trackerTable.setColumnResizePolicy(policy);
 
         // URL column
         TableColumn<TrackerInfo, String> urlCol = new TableColumn<>("Tracker URL");
@@ -69,7 +71,8 @@ public class TrackerListPanel extends BorderPane {
         messageCol.setCellValueFactory(data -> data.getValue().messageProperty());
         messageCol.setPrefWidth(200);
 
-        trackerTable.getColumns().addAll(urlCol, statusCol, seedersCol, leechersCol, downloadedCol, messageCol);
+        trackerTable.getColumns()
+                .addAll(List.of(urlCol, statusCol, seedersCol, leechersCol, downloadedCol, messageCol));
         trackerTable.setItems(trackers);
 
         VBox.setVgrow(trackerTable, Priority.ALWAYS);

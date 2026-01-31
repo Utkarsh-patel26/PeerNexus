@@ -16,7 +16,9 @@ public class StreamingPieceSelector {
 
     private final PieceManager pieceManager;
     private final TorrentFile torrentFile;
+    @SuppressWarnings("unused") // Stored for reference, used in calculations
     private final int fileIndex;
+    @SuppressWarnings("unused") // Reserved for buffer management
     private final long bufferSize;
     private final int firstPiece;
     private final int lastPiece;

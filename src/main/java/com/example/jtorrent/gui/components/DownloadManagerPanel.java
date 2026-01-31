@@ -9,6 +9,7 @@ import java.net.URI;
 import java.nio.file.Paths;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
+import java.util.List;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -146,11 +147,9 @@ public class DownloadManagerPanel {
   private void updateButtonStates(DownloadItem selected) {
     boolean hasSelection = selected != null;
     boolean isRunning = false;
-    boolean isPaused = false;
 
     if (hasSelection && selected.getSession() != null) {
       isRunning = selected.getSession().isRunning();
-      isPaused = !isRunning && !selected.getSession().isCompleted();
     }
 
     startBtn.setDisable(!hasSelection || isRunning);
@@ -163,7 +162,9 @@ public class DownloadManagerPanel {
    */
   private TableView<DownloadItem> createDownloadTable() {
     TableView<DownloadItem> table = new TableView<>(downloads);
-    table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+    @SuppressWarnings("deprecation")
+    var policy = TableView.CONSTRAINED_RESIZE_POLICY;
+    table.setColumnResizePolicy(policy);
     table.setPlaceholder(createEmptyState());
 
     // Name column (40% width)
@@ -243,7 +244,7 @@ public class DownloadManagerPanel {
     statusCol.setPrefWidth(120);
     statusCol.setCellFactory(col -> new StatusCell());
 
-    table.getColumns().addAll(nameCol, sizeCol, progressCol, speedCol, peersCol, statusCol);
+    table.getColumns().addAll(List.of(nameCol, sizeCol, progressCol, speedCol, peersCol, statusCol));
     return table;
   }
 

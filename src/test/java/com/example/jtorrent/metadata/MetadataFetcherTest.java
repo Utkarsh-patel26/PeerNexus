@@ -31,6 +31,7 @@ class MetadataFetcherTest {
         byte[] peerId = new byte[20];
 
         assertDoesNotThrow(() -> {
+            @SuppressWarnings("unused")
             MetadataFetcher fetcher = new MetadataFetcher(infoHash, peerId, config, logger);
         });
     }

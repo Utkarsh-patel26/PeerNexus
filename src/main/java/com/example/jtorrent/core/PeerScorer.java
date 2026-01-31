@@ -10,9 +10,11 @@ import java.util.stream.Collectors;
 
 public class PeerScorer {
 
+    @SuppressWarnings("unused") // Reserved for future debug logging
     private static final Logger logger = Logger.getLogger(PeerScorer.class);
 
     private final Map<String, PeerScore> scores = new ConcurrentHashMap<>();
+    @SuppressWarnings("unused") // Reserved for future weight customization
     private volatile ScoreWeights weights = new ScoreWeights();
 
     public PeerScore getOrCreate(String peerId) {

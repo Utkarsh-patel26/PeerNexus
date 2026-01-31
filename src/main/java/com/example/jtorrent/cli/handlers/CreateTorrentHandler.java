@@ -6,8 +6,6 @@ import com.example.jtorrent.metadata.TorrentCreator;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * CLI handler for creating .torrent files.

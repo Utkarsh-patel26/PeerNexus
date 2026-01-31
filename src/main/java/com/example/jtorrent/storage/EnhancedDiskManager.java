@@ -4,7 +4,6 @@ import com.example.jtorrent.parser.FileEntry;
 
 import java.io.IOException;
 import java.io.RandomAccessFile;
-import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.*;
 import java.util.*;
@@ -25,8 +24,10 @@ public final class EnhancedDiskManager implements AutoCloseable {
     private final FileAllocator allocator;
     private final FileMover mover;
     private final AllocationStrategy allocationStrategy;
+    @SuppressWarnings("unused") // Reserved for piece verification
     private final byte[][] pieceHashes;
     private volatile boolean initialized = false;
+    @SuppressWarnings("unused") // Reserved for read verification feature
     private volatile boolean verifyOnRead = false;
 
     private EnhancedDiskManager(Builder builder) throws IOException {

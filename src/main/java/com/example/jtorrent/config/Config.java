@@ -75,7 +75,6 @@ public class Config {
     return fromJson(content);
   }
 
-  @SuppressWarnings("unchecked")
   public static Config fromJson(String json) {
     Config config = new Config();
 

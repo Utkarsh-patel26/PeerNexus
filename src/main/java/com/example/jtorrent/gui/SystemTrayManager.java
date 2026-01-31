@@ -6,7 +6,6 @@ import javafx.stage.Stage;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
-import java.awt.event.ActionListener;
 import java.awt.image.BufferedImage;
 import java.io.InputStream;
 
@@ -33,9 +32,13 @@ public class SystemTrayManager {
     private boolean isSupported = false;
 
     // Status tracking
+    @SuppressWarnings("unused") // Reserved for tray tooltip updates
     private int activeDownloads = 0;
+    @SuppressWarnings("unused") // Reserved for tray tooltip updates
     private int activePeers = 0;
+    @SuppressWarnings("unused") // Reserved for tray tooltip updates
     private long downloadRate = 0;
+    @SuppressWarnings("unused") // Reserved for tray tooltip updates
     private long uploadRate = 0;
 
     /**

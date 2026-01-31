@@ -160,8 +160,10 @@ public class PeerListPanel extends BorderPane {
         progressCol.setCellFactory(tc -> new ProgressBarTableCell());
         progressCol.setPrefWidth(150);
 
-        table.getColumns().addAll(addressCol, clientCol, flagsCol, downloadCol, uploadCol, progressCol);
-        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        table.getColumns().addAll(List.of(addressCol, clientCol, flagsCol, downloadCol, uploadCol, progressCol));
+        @SuppressWarnings("deprecation")
+        var policy = TableView.CONSTRAINED_RESIZE_POLICY;
+        table.setColumnResizePolicy(policy);
 
         return table;
     }

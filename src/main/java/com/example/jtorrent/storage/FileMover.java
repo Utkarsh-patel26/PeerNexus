@@ -4,7 +4,6 @@ import com.example.jtorrent.parser.FileEntry;
 
 import java.io.IOException;
 import java.nio.file.*;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
@@ -200,7 +199,9 @@ public final class FileMover {
     }
 
     private static class MoveOperation {
+        @SuppressWarnings("unused") // Reserved for progress reporting
         final Path sourceBase;
+        @SuppressWarnings("unused") // Reserved for progress reporting
         final Path destBase;
         final List<FileEntry> files;
         final AtomicLong bytesMoved = new AtomicLong(0);

@@ -416,7 +416,6 @@ public class DhtNode implements AutoCloseable {
   /**
    * Handle query message.
    */
-  @SuppressWarnings("unchecked") // Needed for bencode Map<String, Object> casts
   private void handleQuery(Map<String, Object> dict, InetSocketAddress sender) {
     try {
       String queryType = new String((byte[]) dict.get("q"));

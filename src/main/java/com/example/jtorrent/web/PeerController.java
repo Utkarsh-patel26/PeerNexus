@@ -2,7 +2,6 @@ package com.example.jtorrent.web;
 
 import com.example.jtorrent.core.ActivePeer;
 import com.example.jtorrent.core.TorrentSessionManager;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;

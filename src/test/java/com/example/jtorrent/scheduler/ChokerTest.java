@@ -3,11 +3,6 @@ package com.example.jtorrent.scheduler;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
-
-import com.example.jtorrent.peer.PeerConnection;
-import java.util.ArrayList;
-import java.util.List;
 
 @DisplayName("Choker Tests")
 class ChokerTest {

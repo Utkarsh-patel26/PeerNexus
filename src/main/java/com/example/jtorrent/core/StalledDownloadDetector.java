@@ -223,18 +223,14 @@ public class StalledDownloadDetector {
             long elapsed = now - lastData;
 
             StallReason newReason = StallReason.NONE;
-            String message = "";
 
             // Check various stall conditions
             if (connectedPeers == 0) {
                 newReason = StallReason.NO_PEERS;
-                message = "No peers connected";
             } else if (interestedPeers > 0 && unchokedPeers == 0) {
                 newReason = StallReason.ALL_CHOKED;
-                message = "All peers are choking us";
             } else if (elapsed > stallTimeoutSeconds * 1000L) {
                 newReason = StallReason.TIMEOUT;
-                message = String.format("No data received for %d seconds", elapsed / 1000);
             }
 
             // If we have a stall reason and we weren't already stalled

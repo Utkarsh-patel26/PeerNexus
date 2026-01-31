@@ -26,7 +26,6 @@ import java.util.stream.Stream;
 public class TorrentCreator {
     private static final int MIN_PIECE_SIZE = 16 * 1024; // 16 KB
     private static final int MAX_PIECE_SIZE = 16 * 1024 * 1024; // 16 MB
-    private static final int DEFAULT_PIECE_SIZE = 256 * 1024; // 256 KB
 
     private final List<String> trackers;
     private final String comment;

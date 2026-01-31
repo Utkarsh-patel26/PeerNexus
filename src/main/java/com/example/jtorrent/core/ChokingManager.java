@@ -56,7 +56,9 @@ public class ChokingManager {
         long lastMeasureTime = System.currentTimeMillis();
         boolean isInterested = false;
         boolean isChoked = true;
+        @SuppressWarnings("unused") // Reserved for future bidirectional state tracking
         boolean amInterested = false;
+        @SuppressWarnings("unused") // Reserved for future bidirectional state tracking
         boolean amChoked = true;
         int optimisticUnchokeScore = 0;
 
