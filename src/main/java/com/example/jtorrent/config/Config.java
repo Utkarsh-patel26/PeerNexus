@@ -65,6 +65,11 @@ public class Config {
   private int metadataParallelPeers = DEFAULT_METADATA_PARALLEL_PEERS;
   private int metadataPieceTimeoutMs = DEFAULT_METADATA_PIECE_TIMEOUT_MS;
 
+  // Web server settings
+  private int webPort = 8080;
+  private int webSocketPort = 8081;
+  private String webPassword = "admin";
+
   public static Config fromFile(Path configPath) throws IOException {
     String content = Files.readString(configPath);
     return fromJson(content);
@@ -406,6 +411,30 @@ public class Config {
 
   public void setMetadataPieceTimeoutMs(int metadataPieceTimeoutMs) {
     this.metadataPieceTimeoutMs = metadataPieceTimeoutMs;
+  }
+
+  public int getWebPort() {
+    return webPort;
+  }
+
+  public void setWebPort(int webPort) {
+    this.webPort = webPort;
+  }
+
+  public int getWebSocketPort() {
+    return webSocketPort;
+  }
+
+  public void setWebSocketPort(int webSocketPort) {
+    this.webSocketPort = webSocketPort;
+  }
+
+  public String getWebPassword() {
+    return webPassword;
+  }
+
+  public void setWebPassword(String webPassword) {
+    this.webPassword = webPassword;
   }
 
   /**
