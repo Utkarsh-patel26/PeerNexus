@@ -370,22 +370,19 @@ public class PeerListPanel extends BorderPane {
             this.downloadRate = new SimpleStringProperty(formatRate((long) downRate));
             this.uploadRate = new SimpleStringProperty("0 B/s"); // TODO: Add upload rate tracking
 
-            // Calculate progress (based on bitfield)
-            double prog = calculateProgress(connection.getPeerBitfield());
+            // Calculate progress (based on bitfield and total pieces)
+            double prog = calculateProgress(connection.getPeerBitfield(), connection.getTotalPieces());
             this.progress = new SimpleDoubleProperty(prog);
 
             this.isSeeder = connection.isPeerSeeder();
             this.isChoked = connection.peerChoking();
         }
 
-        private double calculateProgress(BitSet bitfield) {
-            if (bitfield == null)
-                return 0.0;
-            int totalBits = bitfield.length();
-            if (totalBits == 0)
+        private double calculateProgress(BitSet bitfield, int totalPieces) {
+            if (bitfield == null || totalPieces <= 0)
                 return 0.0;
             int setBits = bitfield.cardinality();
-            return (double) setBits / totalBits;
+            return (double) setBits / totalPieces;
         }
 
         private String parseClientName(byte[] peerId) {
@@ -448,14 +445,22 @@ public class PeerListPanel extends BorderPane {
     }
 
     /**
-     * Progress bar cell for displaying peer progress.
+     * Progress bar cell for displaying peer progress with percentage.
      */
     private static class ProgressBarTableCell extends TableCell<PeerInfo, Double> {
         private final ProgressBar progressBar;
+        private final Label percentLabel;
+        private final HBox container;
 
         public ProgressBarTableCell() {
             this.progressBar = new ProgressBar();
-            this.progressBar.setPrefWidth(Double.MAX_VALUE);
+            this.progressBar.setPrefWidth(80);
+            this.percentLabel = new Label();
+            this.percentLabel.setMinWidth(50);
+            this.percentLabel.setStyle("-fx-font-size: 11px;");
+            this.container = new HBox(5);
+            this.container.setAlignment(Pos.CENTER_LEFT);
+            this.container.getChildren().addAll(progressBar, percentLabel);
         }
 
         @Override
@@ -463,9 +468,11 @@ public class PeerListPanel extends BorderPane {
             super.updateItem(progress, empty);
             if (empty || progress == null) {
                 setGraphic(null);
+                setText(null);
             } else {
                 progressBar.setProgress(progress);
-                setGraphic(progressBar);
+                percentLabel.setText(String.format("%.1f%%", progress * 100.0));
+                setGraphic(container);
             }
         }
     }

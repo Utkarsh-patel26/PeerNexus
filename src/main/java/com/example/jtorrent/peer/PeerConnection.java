@@ -38,6 +38,7 @@ public class PeerConnection implements AutoCloseable {
   private final Object bitfieldLock = new Object();
   private java.util.BitSet peerBitfield = null;
   private volatile boolean peerIsSeeder = false;
+  private volatile int totalPieces = 0;
 
   // Bandwidth limiter for rate limiting (optional)
   private BandwidthLimiter bandwidthLimiter = null;
@@ -599,6 +600,7 @@ public class PeerConnection implements AutoCloseable {
   public void setPeerBitfield(java.util.BitSet bitfield, int totalPieces) {
     synchronized (bitfieldLock) {
       this.peerBitfield = bitfield != null ? (java.util.BitSet) bitfield.clone() : null;
+      this.totalPieces = totalPieces;
       // Check if peer has all pieces (is a seeder)
       if (bitfield != null) {
         this.peerIsSeeder = bitfield.cardinality() == totalPieces;
@@ -616,6 +618,15 @@ public class PeerConnection implements AutoCloseable {
   }
 
   /**
+   * Get the total number of pieces in the torrent.
+   *
+   * @return total pieces count
+   */
+  public int getTotalPieces() {
+    return totalPieces;
+  }
+
+  /**
    * Update peer bitfield after receiving a HAVE message.
    *
    * @param pieceIndex  the piece index the peer now has
@@ -626,6 +637,7 @@ public class PeerConnection implements AutoCloseable {
       if (peerBitfield == null) {
         peerBitfield = new java.util.BitSet(totalPieces);
       }
+      this.totalPieces = totalPieces;
       peerBitfield.set(pieceIndex);
       // Update seeder status
       this.peerIsSeeder = peerBitfield.cardinality() == totalPieces;

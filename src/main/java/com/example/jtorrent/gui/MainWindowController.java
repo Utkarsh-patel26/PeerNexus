@@ -462,21 +462,33 @@ public class MainWindowController {
   public void updateBottomPanelsForSelection(DownloadItem item) {
     selectedDownloadItem = item;
     if (item == null) {
+      // Clear all panels when nothing selected
+      if (fileListPanel != null)
+        fileListPanel.setSession(null);
+      if (trackerListPanel != null)
+        trackerListPanel.setSession(null);
+      if (peerListPanel != null)
+        peerListPanel.setSession(null);
+      if (pieceMapPanel != null)
+        pieceMapPanel.setSession(null);
       return;
     }
 
     var session = item.getSession();
-    if (fileListPanel != null) {
-      fileListPanel.setSession(session);
-    }
-    if (trackerListPanel != null) {
-      trackerListPanel.setSession(session);
-    }
-    if (peerListPanel != null) {
-      peerListPanel.setSession(session);
-    }
-    if (pieceMapPanel != null) {
-      pieceMapPanel.setSession(session);
+    // Only update panels if session exists (may be null initially for magnet links)
+    if (session != null) {
+      if (fileListPanel != null) {
+        fileListPanel.setSession(session);
+      }
+      if (trackerListPanel != null) {
+        trackerListPanel.setSession(session);
+      }
+      if (peerListPanel != null) {
+        peerListPanel.setSession(session);
+      }
+      if (pieceMapPanel != null) {
+        pieceMapPanel.setSession(session);
+      }
     }
   }
 }

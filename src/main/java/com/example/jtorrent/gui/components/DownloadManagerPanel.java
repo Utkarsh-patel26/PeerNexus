@@ -344,6 +344,12 @@ public class DownloadManagerPanel {
           item.setStatus("Initializing...");
           item.updateFromSession();
           downloadTable.refresh();
+
+          // CRITICAL: Re-notify bottom panels now that session is available
+          // The initial selection event fired before session was created
+          if (mainController != null && downloadTable.getSelectionModel().getSelectedItem() == item) {
+            mainController.updateBottomPanelsForSelection(item);
+          }
         });
 
         // Start session in separate thread
