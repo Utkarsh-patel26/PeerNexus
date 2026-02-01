@@ -144,7 +144,13 @@ public final class IPv6Support implements AutoCloseable {
         v6Bytes[11] = (byte) 0xFF;
         System.arraycopy(v4Bytes, 0, v6Bytes, 12, 4);
         try {
-            return (Inet6Address) InetAddress.getByAddress(v6Bytes);
+            InetAddress result = InetAddress.getByAddress(v6Bytes);
+            if (result instanceof Inet6Address) {
+                return (Inet6Address) result;
+            }
+            // Java detects IPv4-mapped addresses and returns Inet4Address
+            // Use the overload with scope_id to force Inet6Address
+            return Inet6Address.getByAddress(null, v6Bytes, null);
         } catch (UnknownHostException e) {
             throw new IllegalStateException(e);
         }
