@@ -1,0 +1,39 @@
+# =============================================================================
+# Dependabot — Automated dependency updates
+# =============================================================================
+# Weekly PRs for Maven dependencies and GitHub Actions versions.
+# =============================================================================
+
+version: 2
+
+updates:
+  # Maven / Java dependencies
+  - package-ecosystem: maven
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: UTC
+    open-pull-requests-limit: 10
+    labels:
+      - dependencies
+      - java
+    reviewers: []
+    commit-message:
+      prefix: "deps(maven):"
+
+  # GitHub Actions
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: UTC
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - ci
+    commit-message:
+      prefix: "deps(actions):"

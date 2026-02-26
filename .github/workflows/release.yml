@@ -1,0 +1,142 @@
+# =============================================================================
+# Release Pipeline — Triggered by version tags (v*)
+# =============================================================================
+# Creates a GitHub Release with the fat JAR attached and pushes a versioned
+# Docker image to GitHub Container Registry.
+# =============================================================================
+
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  JAVA_VERSION: "21"
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # 1. Build release artifacts
+  # ---------------------------------------------------------------------------
+  build:
+    name: Build Release
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
+
+      - name: Set Maven version
+        run: mvn versions:set -DnewVersion=${{ steps.version.outputs.version }} -B -q
+
+      - name: Build and test
+        run: mvn clean verify -B
+
+      - name: Generate SBOM
+        run: mvn cyclonedx:makeAggregateBom -B -q
+
+      - name: Upload JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-jar
+          path: target/jtorrent-gui.jar
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-sbom
+          path: |
+            target/bom.xml
+            target/bom.json
+
+  # ---------------------------------------------------------------------------
+  # 2. GitHub Release
+  # ---------------------------------------------------------------------------
+  github-release:
+    name: Publish GitHub Release
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Download JAR
+        uses: actions/download-artifact@v4
+        with:
+          name: release-jar
+
+      - name: Download SBOM
+        uses: actions/download-artifact@v4
+        with:
+          name: release-sbom
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ needs.build.outputs.version }}
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          generate_release_notes: true
+          files: |
+            jtorrent-gui.jar
+            bom.xml
+            bom.json
+
+  # ---------------------------------------------------------------------------
+  # 3. Docker Release Image
+  # ---------------------------------------------------------------------------
+  docker-release:
+    name: Publish Docker Image
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

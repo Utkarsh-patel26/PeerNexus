@@ -71,7 +71,6 @@ Copy `config.example.json` to `config.json` and adjust settings:
 
 Set bandwidth limits to `0` for unlimited.
 
-
 ## Testing
 
 ```bash
@@ -88,6 +87,22 @@ run-integration-tests.bat   # Windows
 ```
 
 Coverage reports: `target/site/jacoco/index.html`
+
+## CI/CD
+
+The project includes a comprehensive CI/CD system with:
+
+- **Continuous Integration**: Build, test, coverage, integration tests, SBOM generation
+- **Security Scanning**: CodeQL SAST, OWASP dependency check, Gitleaks, SpotBugs, Trivy container scanning
+- **Release Automation**: Automatic semantic versioning from conventional commits, tag-triggered releases
+- **Docker**: Multi-stage builds, GHCR publishing, health verification, vulnerability scanning
+- **Preview Environments**: Ephemeral Docker deployments per Pull Request
+- **Deployment**: Staging pipeline with smoke tests and automatic rollback
+- **Notifications**: Slack or GitHub Issue alerts on pipeline failures
+- **Nightly**: Full regression suite, stress tests, performance benchmarking
+- **Observability**: Health checks, structured logging readiness, Prometheus metrics roadmap
+
+See [CI-CD.md](CI-CD.md), [docker.md](docker.md), and [OBSERVABILITY.md](OBSERVABILITY.md) for full details.
 
 ## Project Structure
 

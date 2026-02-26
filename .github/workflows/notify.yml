@@ -1,0 +1,135 @@
+# =============================================================================
+# Failure Notifications — Alert on nightly/security pipeline failures
+# =============================================================================
+# Reusable workflow that sends notifications when critical pipelines fail.
+# Strategy:
+#   1. If SLACK_WEBHOOK_URL secret is configured → send Slack notification.
+#   2. Otherwise → automatically create a GitHub Issue.
+# =============================================================================
+
+name: Failure Notification
+
+on:
+  workflow_run:
+    workflows: ["Nightly", "CodeQL"]
+    types: [completed]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  notify:
+    name: Failure Alert
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'failure'
+    steps:
+      - name: Determine notification method
+        id: method
+        run: |
+          if [ -n "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
+            echo "method=slack" >> "$GITHUB_OUTPUT"
+          else
+            echo "method=github-issue" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Send Slack notification
+        if: steps.method.outputs.method == 'slack'
+        run: |
+          curl -sf -X POST "${{ secrets.SLACK_WEBHOOK_URL }}" \
+            -H 'Content-Type: application/json' \
+            -d '{
+              "text": "🚨 *Pipeline Failure* — `${{ github.event.workflow_run.name }}`",
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "🚨 Pipeline Failure Alert"
+                  }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    { "type": "mrkdwn", "text": "*Workflow:*\n`${{ github.event.workflow_run.name }}`" },
+                    { "type": "mrkdwn", "text": "*Branch:*\n`${{ github.event.workflow_run.head_branch }}`" },
+                    { "type": "mrkdwn", "text": "*Conclusion:*\n`${{ github.event.workflow_run.conclusion }}`" },
+                    { "type": "mrkdwn", "text": "*Triggered by:*\n`${{ github.event.workflow_run.actor.login }}`" }
+                  ]
+                },
+                {
+                  "type": "actions",
+                  "elements": [
+                    {
+                      "type": "button",
+                      "text": { "type": "plain_text", "text": "View Run" },
+                      "url": "${{ github.event.workflow_run.html_url }}"
+                    }
+                  ]
+                }
+              ]
+            }'
+
+      - name: Create GitHub Issue on failure
+        if: steps.method.outputs.method == 'github-issue'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const workflowName = context.payload.workflow_run.name;
+            const branch = context.payload.workflow_run.head_branch;
+            const runUrl = context.payload.workflow_run.html_url;
+            const runId = context.payload.workflow_run.id;
+            const actor = context.payload.workflow_run.actor.login;
+            const conclusion = context.payload.workflow_run.conclusion;
+
+            const title = `[CI Failure] ${workflowName} failed on ${branch}`;
+
+            // Check for existing open issue to avoid duplicates
+            const { data: existingIssues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'ci-failure',
+              per_page: 50
+            });
+            const duplicate = existingIssues.find(i => i.title === title);
+            if (duplicate) {
+              // Add a comment to the existing issue instead
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: duplicate.number,
+                body: `### Recurrence\n\n- **Run ID**: [${runId}](${runUrl})\n- **Time**: ${new Date().toISOString()}\n- **Actor**: @${actor}\n- **Conclusion**: \`${conclusion}\``
+              });
+              core.info(`Updated existing issue #${duplicate.number}`);
+              return;
+            }
+
+            const body = `## Pipeline Failure Report
+
+            | Detail | Value |
+            |--------|-------|
+            | **Workflow** | \`${workflowName}\` |
+            | **Branch** | \`${branch}\` |
+            | **Conclusion** | \`${conclusion}\` |
+            | **Triggered by** | @${actor} |
+            | **Run URL** | [View workflow run](${runUrl}) |
+            | **Run ID** | \`${runId}\` |
+            | **Timestamp** | \`${new Date().toISOString()}\` |
+
+            ### Action Required
+
+            1. Review the [workflow run logs](${runUrl}).
+            2. Identify root cause.
+            3. Fix and push — this issue will be automatically updated if failures recur.
+
+            ---
+            *This issue was automatically created by the failure notification workflow.*`;
+
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: title,
+              body: body,
+              labels: ['ci-failure', 'automated', 'priority:high']
+            });

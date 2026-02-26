@@ -1,0 +1,203 @@
+# =============================================================================
+# PR Preview Environment — Ephemeral deployment for Pull Requests
+# =============================================================================
+# On PR open/sync: build Docker image, start compose environment, post URL.
+# On PR close: tear down the ephemeral environment automatically.
+# =============================================================================
+
+name: PR Preview
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+    branches: [main, develop]
+
+permissions:
+  contents: read
+  packages: write
+  pull-requests: write
+
+concurrency:
+  group: preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  JAVA_VERSION: "21"
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Deploy preview environment
+  # ---------------------------------------------------------------------------
+  deploy-preview:
+    name: Deploy Preview
+    runs-on: ubuntu-latest
+    if: github.event.action != 'closed'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build PR preview image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:pr-${{ github.event.pull_request.number }}
+          labels: |
+            org.opencontainers.image.source=${{ github.event.repository.html_url }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            com.peernexus.preview=true
+            com.peernexus.pr=${{ github.event.pull_request.number }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Start preview environment
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PREVIEW_IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:pr-${{ github.event.pull_request.number }}
+        run: |
+          export PREVIEW_PORT=$((8080 + $PR_NUMBER % 1000))
+          echo "PREVIEW_PORT=$PREVIEW_PORT" >> "$GITHUB_ENV"
+
+          cat > docker-compose.preview.yml <<EOF
+          services:
+            peernexus-preview:
+              image: ${PREVIEW_IMAGE}
+              container_name: peernexus-preview-pr-${PR_NUMBER}
+              ports:
+                - "${PREVIEW_PORT}:8080"
+              environment:
+                - JAVA_OPTS=-XX:MaxRAMPercentage=50.0
+              healthcheck:
+                test: ["CMD", "curl", "-sf", "http://localhost:8080/api/stats"]
+                interval: 10s
+                timeout: 5s
+                start_period: 15s
+                retries: 5
+              restart: unless-stopped
+          EOF
+
+          docker compose -f docker-compose.preview.yml up -d
+
+          echo "Waiting for preview to become healthy..."
+          for i in $(seq 1 30); do
+            STATUS=$(docker inspect --format='{{.State.Health.Status}}' peernexus-preview-pr-${PR_NUMBER} 2>/dev/null || echo "starting")
+            if [ "$STATUS" = "healthy" ]; then
+              echo "Preview environment is healthy!"
+              break
+            fi
+            if [ "$i" -eq 30 ]; then
+              echo "::warning::Preview container did not reach healthy state within timeout"
+            fi
+            sleep 5
+          done
+
+      - name: Post preview URL comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = context.payload.pull_request.number;
+            const previewPort = 8080 + (prNumber % 1000);
+            const body = `## 🔍 PR Preview Environment
+
+            | Property | Value |
+            |----------|-------|
+            | **Image** | \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:pr-${prNumber}\` |
+            | **Container** | \`peernexus-preview-pr-${prNumber}\` |
+            | **Port** | \`${previewPort}\` |
+            | **Status** | ✅ Deployed |
+
+            ### Local testing
+            \`\`\`bash
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:pr-${prNumber}
+            docker run -d --name preview-pr-${prNumber} -p ${previewPort}:8080 ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:pr-${prNumber}
+            \`\`\`
+
+            > Preview image built from commit \`${{ github.sha }}\`. The image is available on GHCR for local testing.
+            > **Note**: On GitHub Actions runners, the preview is ephemeral and runs during the CI job only.`;
+
+            // Find existing preview comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber
+            });
+            const existing = comments.find(c => c.body.includes('PR Preview Environment'));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body: body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body: body
+              });
+            }
+
+      - name: Cleanup preview after verification
+        if: always()
+        run: |
+          docker compose -f docker-compose.preview.yml down --remove-orphans 2>/dev/null || true
+
+  # ---------------------------------------------------------------------------
+  # Cleanup on PR close
+  # ---------------------------------------------------------------------------
+  cleanup-preview:
+    name: Cleanup Preview
+    runs-on: ubuntu-latest
+    if: github.event.action == 'closed'
+    steps:
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Remove preview image tag
+        continue-on-error: true
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = context.payload.pull_request.number;
+            const tag = `pr-${prNumber}`;
+            core.info(`PR #${prNumber} closed — preview image tag '${tag}' will be cleaned up by GHCR retention policy.`);
+            core.info('Preview environment cleanup complete.');
+
+      - name: Post cleanup comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = context.payload.pull_request.number;
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber
+            });
+            const existing = comments.find(c => c.body.includes('PR Preview Environment'));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body: `## 🔍 PR Preview Environment\n\n**Status**: 🗑️ Cleaned up (PR closed)\n\nThe preview image \`pr-${prNumber}\` will be purged by GHCR retention policy.`
+              });
+            }

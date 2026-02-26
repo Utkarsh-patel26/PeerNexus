@@ -1,0 +1,64 @@
+# =============================================================================
+# .dockerignore — keep Docker build context small and secure
+# =============================================================================
+
+# Build artifacts (rebuilt inside container)
+target/
+build/
+dist/
+dependency-reduced-pom.xml
+
+# IDE & editor
+.idea/
+.eclipse/
+.vscode/
+*.iml
+*.iws
+*.ipr
+*.swp
+*.swo
+*~
+
+# Git
+.git/
+.gitignore
+
+# CI/CD (not needed in image)
+.github/
+
+# Docker meta (avoid recursive context)
+docker/
+.dockerignore
+Dockerfile
+
+# Documentation
+*.md
+LICENSE
+
+# Test infrastructure
+test-integration/
+src/test/
+
+# Runtime data that should be volume-mounted
+downloads/
+state/
+logs/
+*.log
+
+# OS junk
+.DS_Store
+Thumbs.db
+ehthumbs.db
+
+# Environment / secrets
+.env
+.env.*
+config.json
+
+# Staging / compose overlays
+docker-compose.staging.yml
+docker-compose.preview.yml
+
+# Generated reports
+*.exec
+CLEANUP_REPORT.md

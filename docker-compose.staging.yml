@@ -1,0 +1,49 @@
+# =============================================================================
+# Docker Compose — Staging Environment
+# =============================================================================
+# Used by the deploy.yml workflow for staging deployments.
+# Also suitable for local staging simulation.
+#
+# Usage:
+#   IMAGE_TAG=ghcr.io/<owner>/peernexus:1.2.3 docker compose -f docker-compose.staging.yml up -d
+# =============================================================================
+
+services:
+  peernexus-staging:
+    image: ${IMAGE_TAG:-ghcr.io/peernexus/peernexus:latest}
+    container_name: peernexus-staging
+    ports:
+      - "8080:8080"
+      - "8081:8081"
+      - "6881:6881"
+      - "6881:6881/udp"
+    volumes:
+      - staging-downloads:/app/downloads
+      - staging-state:/app/state
+      - staging-logs:/app/logs
+    environment:
+      - JAVA_OPTS=-XX:MaxRAMPercentage=75.0 -Djava.awt.headless=true
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/api/stats"]
+      interval: 15s
+      timeout: 5s
+      start_period: 30s
+      retries: 5
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
+        reservations:
+          memory: 256M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  staging-downloads:
+  staging-state:
+  staging-logs:

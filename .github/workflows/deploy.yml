@@ -1,0 +1,211 @@
+# =============================================================================
+# Deployment Pipeline — Staging environment deployment
+# =============================================================================
+# Triggers: successful release OR manual dispatch.
+# Pulls versioned Docker image from GHCR, deploys using docker compose
+# staging configuration, runs smoke tests, and rolls back on failure.
+# =============================================================================
+
+name: Deploy
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Docker image tag to deploy (e.g., 1.2.3 or latest)"
+        required: true
+        default: "latest"
+      environment:
+        description: "Target environment"
+        required: true
+        type: choice
+        options:
+          - staging
+        default: staging
+
+permissions:
+  contents: read
+  packages: read
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # 1. Deploy to staging
+  # ---------------------------------------------------------------------------
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ github.event.inputs.environment || 'staging' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Determine image tag
+        id: image
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            TAG="${{ github.event.release.tag_name }}"
+            TAG="${TAG#v}"
+          else
+            TAG="${{ github.event.inputs.version }}"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Deploying image tag: $TAG"
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull deployment image
+        run: |
+          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.image.outputs.tag }}
+
+      - name: Stop existing staging environment
+        run: |
+          docker compose -f docker-compose.staging.yml down --remove-orphans 2>/dev/null || true
+
+      - name: Deploy staging environment
+        env:
+          DEPLOY_TAG: ${{ steps.image.outputs.tag }}
+          DEPLOY_REGISTRY: ${{ env.REGISTRY }}
+          DEPLOY_IMAGE: ${{ env.IMAGE_NAME }}
+        run: |
+          export IMAGE_TAG="${DEPLOY_REGISTRY}/${DEPLOY_IMAGE}:${DEPLOY_TAG}"
+          echo "Deploying: $IMAGE_TAG"
+
+          cat > docker-compose.staging.yml <<'EOF'
+          services:
+            peernexus-staging:
+              image: ${IMAGE_TAG}
+              container_name: peernexus-staging
+              ports:
+                - "8080:8080"
+                - "8081:8081"
+                - "6881:6881"
+                - "6881:6881/udp"
+              volumes:
+                - staging-downloads:/app/downloads
+                - staging-state:/app/state
+                - staging-logs:/app/logs
+              environment:
+                - JAVA_OPTS=-XX:MaxRAMPercentage=75.0 -Djava.awt.headless=true
+              healthcheck:
+                test: ["CMD", "curl", "-sf", "http://localhost:8080/api/stats"]
+                interval: 15s
+                timeout: 5s
+                start_period: 30s
+                retries: 5
+              restart: unless-stopped
+              deploy:
+                resources:
+                  limits:
+                    memory: 512M
+                    cpus: "1.0"
+                  reservations:
+                    memory: 256M
+
+          volumes:
+            staging-downloads:
+            staging-state:
+            staging-logs:
+          EOF
+
+          IMAGE_TAG="$IMAGE_TAG" docker compose -f docker-compose.staging.yml up -d
+
+      - name: Wait for staging to become healthy
+        id: health
+        run: |
+          echo "Waiting for staging container health..."
+          HEALTHY=false
+          for i in $(seq 1 40); do
+            STATUS=$(docker inspect --format='{{.State.Health.Status}}' peernexus-staging 2>/dev/null || echo "not-found")
+            echo "Attempt $i/40 — status: $STATUS"
+            if [ "$STATUS" = "healthy" ]; then
+              HEALTHY=true
+              echo "Staging environment is healthy!"
+              break
+            fi
+            sleep 5
+          done
+
+          if [ "$HEALTHY" != "true" ]; then
+            echo "healthy=false" >> "$GITHUB_OUTPUT"
+            echo "::error::Staging deployment failed health check"
+          else
+            echo "healthy=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Smoke test — API responsiveness
+        id: smoke
+        if: steps.health.outputs.healthy == 'true'
+        run: |
+          echo "Running smoke tests..."
+          PASS=true
+
+          # Test 1: Stats endpoint
+          echo "Test 1: GET /api/stats"
+          HTTP_CODE=$(curl -sf -o /dev/null -w "%{http_code}" http://localhost:8080/api/stats 2>/dev/null || echo "000")
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "  ✅ /api/stats returned HTTP $HTTP_CODE"
+          else
+            echo "  ❌ /api/stats returned HTTP $HTTP_CODE"
+            PASS=false
+          fi
+
+          # Test 2: Port is accepting connections
+          echo "Test 2: TCP connectivity on port 8080"
+          if timeout 5 bash -c 'echo > /dev/tcp/localhost/8080' 2>/dev/null; then
+            echo "  ✅ Port 8080 is accepting connections"
+          else
+            echo "  ❌ Port 8080 is not accepting connections"
+            PASS=false
+          fi
+
+          if [ "$PASS" = "true" ]; then
+            echo "passed=true" >> "$GITHUB_OUTPUT"
+            echo "All smoke tests passed!"
+          else
+            echo "passed=false" >> "$GITHUB_OUTPUT"
+            echo "::error::Smoke tests failed"
+          fi
+
+      - name: Rollback on failure
+        if: steps.health.outputs.healthy != 'true' || steps.smoke.outputs.passed != 'true'
+        run: |
+          echo "::warning::Deployment failed — initiating rollback"
+          echo "Collecting diagnostic logs..."
+          docker logs peernexus-staging 2>&1 | tail -100 || true
+
+          echo "Tearing down failed deployment..."
+          docker compose -f docker-compose.staging.yml down --remove-orphans 2>/dev/null || true
+
+          echo "## ❌ Deployment Rollback" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "The staging deployment of \`${{ steps.image.outputs.tag }}\` failed and was rolled back." >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Reason**: Health check or smoke test failure." >> "$GITHUB_STEP_SUMMARY"
+          echo "Review the workflow logs for diagnostic information." >> "$GITHUB_STEP_SUMMARY"
+
+          exit 1
+
+      - name: Deployment summary
+        if: steps.health.outputs.healthy == 'true' && steps.smoke.outputs.passed == 'true'
+        run: |
+          echo "## ✅ Staging Deployment Successful" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Property | Value |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|----------|-------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| **Image** | \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.image.outputs.tag }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| **Container** | \`peernexus-staging\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| **Health** | ✅ Healthy |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| **Smoke tests** | ✅ Passed |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| **Timestamp** | \`$(date -u +%Y-%m-%dT%H:%M:%SZ)\` |" >> "$GITHUB_STEP_SUMMARY"

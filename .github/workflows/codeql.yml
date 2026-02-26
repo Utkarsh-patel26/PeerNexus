@@ -1,0 +1,71 @@
+# =============================================================================
+# CodeQL Security Analysis — Static Application Security Testing (SAST)
+# =============================================================================
+# Triggers: push to main, pull requests, weekly schedule
+# Performs deep semantic analysis of Java source code to detect:
+#   - SQL injection, XSS, path traversal, insecure deserialization
+#   - Cryptographic weaknesses, information disclosure
+#   - Other CWE-classified vulnerabilities
+# Results appear in the GitHub Security tab and PR checks.
+# =============================================================================
+
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    # Weekly scan — Sunday at 04:00 UTC
+    - cron: "0 4 * * 0"
+
+permissions:
+  actions: read
+  contents: read
+  security-events: write
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  JAVA_VERSION: "21"
+
+jobs:
+  analyze:
+    name: CodeQL Analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [java-kotlin]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          queries: +security-extended,security-and-quality
+
+      # CodeQL requires a full build for compiled languages (Java)
+      - name: Build with Maven
+        run: mvn clean compile -B -q -DskipTests
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"
+          # SARIF results are automatically uploaded to the Security tab
