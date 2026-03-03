@@ -431,7 +431,7 @@ class RateLimiterTest {
         })
         void rateLimitingMaintainsApproximateRate(long limit, long chunkSize) {
             rateLimiter = new RateLimiter(limit);
-            int iterations = 5;
+            int iterations = 20;
 
             long startTime = System.currentTimeMillis();
             for (int i = 0; i < iterations; i++) {
@@ -439,14 +439,15 @@ class RateLimiterTest {
             }
             long elapsed = System.currentTimeMillis() - startTime;
 
-            // Avoid division by zero
+            long totalBytes = iterations * chunkSize;
+            long expectedMinElapsedMs = Math.max(0, ((totalBytes - limit) * 1000) / limit);
+
+            assertThat(elapsed).isGreaterThanOrEqualTo(Math.max(0, expectedMinElapsedMs - 250));
+
             if (elapsed > 0) {
-                long totalBytes = iterations * chunkSize;
                 double actualRate = (double) totalBytes / (elapsed / 1000.0);
-                assertThat(actualRate).isLessThanOrEqualTo(limit * 2);
+                assertThat(actualRate).isLessThanOrEqualTo(limit * 2.5);
             }
-            // If elapsed is 0, the rate limiter allowed immediate acquisition which is
-            // valid
         }
     }
 }

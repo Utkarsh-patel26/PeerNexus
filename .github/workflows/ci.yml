@@ -74,7 +74,7 @@ jobs:
         run: mvn clean verify -B -DskipITs
 
       - name: JaCoCo coverage verification
-        run: mvn jacoco:check -B
+        run: mvn jacoco:check@jacoco-check -B
 
       - name: Upload JaCoCo report
         if: always()
