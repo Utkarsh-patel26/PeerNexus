@@ -235,13 +235,22 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.28.0
-        with:
-          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-          format: table
-          exit-code: 1
-          severity: HIGH,CRITICAL
-          output: trivy-report.txt
+        env:
+          TRIVY_IMAGE: aquasec/trivy:0.56.1
+          TARGET_IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+        run: |
+          mkdir -p "${{ runner.temp }}/trivy-cache"
+          docker run --rm \
+            -e TRIVY_USERNAME="${{ github.actor }}" \
+            -e TRIVY_PASSWORD="${{ secrets.GITHUB_TOKEN }}" \
+            -v "${{ runner.temp }}/trivy-cache:/root/.cache/" \
+            -v "${{ github.workspace }}:/workspace" \
+            "$TRIVY_IMAGE" image \
+            --severity HIGH,CRITICAL \
+            --exit-code 1 \
+            --format table \
+            --output /workspace/trivy-report.txt \
+            "$TARGET_IMAGE"
 
       - name: Upload Trivy scan report
         if: always()
