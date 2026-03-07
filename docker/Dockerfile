@@ -33,6 +33,11 @@ FROM eclipse-temurin:21-jre-jammy AS runtime
 RUN groupadd --gid 1000 appuser \
     && useradd --uid 1000 --gid appuser --shell /bin/false --create-home appuser
 
+# Install curl for container health checks.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 # Copy only the fat JAR from the build stage
