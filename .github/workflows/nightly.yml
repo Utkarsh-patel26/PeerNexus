@@ -177,12 +177,60 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           cache: maven
 
+      - name: Cache Dependency-Check data
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository/org/owasp/dependency-check-data/
+          # Use run-id key so each successful run can refresh cache, with prefix restore.
+          key: ${{ runner.os }}-dependency-check-data-${{ github.run_id }}
+          restore-keys: |
+            ${{ runner.os }}-dependency-check-data-
+
       - name: OWASP Dependency-Check
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
         run: |
-          mvn org.owasp:dependency-check-maven:check -B \
-            -DfailBuildOnCVSS=7 \
-            -Dformat=HTML \
-            -DoutputDirectory=target/dependency-check
+          set -euo pipefail
+
+          DC_ARGS="-DfailBuildOnCVSS=7 -Dformat=HTML -DoutputDirectory=target/dependency-check -DnvdValidForHours=24"
+
+          # Supplying an NVD API key avoids aggressive anonymous rate limits.
+          if [ -n "${NVD_API_KEY:-}" ]; then
+            DC_ARGS="$DC_ARGS -DnvdApiKey=$NVD_API_KEY"
+          fi
+
+          attempt=1
+          max_attempts=3
+          scan_succeeded=false
+          saw_rate_limit=false
+
+          until [ "$attempt" -gt "$max_attempts" ]; do
+            echo "Dependency-Check attempt $attempt/$max_attempts"
+            if mvn org.owasp:dependency-check-maven:check -B $DC_ARGS 2>&1 | tee dependency-check.log; then
+              scan_succeeded=true
+              break
+            fi
+
+            if grep -q "NVD Returned Status Code: 429" dependency-check.log; then
+              saw_rate_limit=true
+              if [ "$attempt" -lt "$max_attempts" ]; then
+                sleep_seconds=$((attempt * 30))
+                echo "NVD API rate limited (429). Retrying in ${sleep_seconds}s..."
+                sleep "$sleep_seconds"
+                attempt=$((attempt + 1))
+                continue
+              fi
+              attempt=$((attempt + 1))
+            else
+              echo "Dependency-Check failed with a non-retryable error."
+              exit 1
+            fi
+          done
+
+          if [ "$scan_succeeded" = false ] && [ "$saw_rate_limit" = true ]; then
+            echo "Retries exhausted due to NVD rate limiting. Running with cached data only (autoUpdate=false)."
+            mvn org.owasp:dependency-check-maven:check -B $DC_ARGS -DautoUpdate=false
+          fi
 
       - name: Upload report
         if: always()
