@@ -136,7 +136,13 @@ jobs:
           done
 
       - name: Run integration tests
-        run: mvn verify -B -Dtest.integration=true -Dtest=*IntegrationTest -DfailIfNoTests=false
+        run: |
+          mvn verify -B \
+            -Dtest.integration=true \
+            -Dit.test=*IntegrationTest \
+            -Dsurefire.failIfNoSpecifiedTests=false \
+            -Dfailsafe.failIfNoSpecifiedTests=false \
+            -DfailIfNoTests=false
 
       - name: Upload Failsafe reports
         if: always()
