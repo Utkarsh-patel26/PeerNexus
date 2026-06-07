@@ -269,6 +269,7 @@ jobs:
           echo "Starting container for health verification..."
           docker run -d --name health-check \
             -p 8080:8080 \
+            -e JAVA_OPTS="-XX:MaxRAMPercentage=75.0 -Djava.awt.headless=true" \
             ${{ steps.image.outputs.ref }}:latest
           echo "Waiting for container to become healthy..."
           for i in $(seq 1 20); do
