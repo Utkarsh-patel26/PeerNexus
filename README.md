@@ -98,58 +98,58 @@ Under the hood, PeerNexus implements eight BitTorrent Enhancement Proposals (BEP
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                            PeerNexus Runtime                            │
-│                                                                         │
-│  ┌──────────────┐   ┌──────────────┐   ┌────────────────────────────┐  │
-│  │  JavaFX GUI  │   │   REST API   │   │      CLI / Terminal UI     │  │
-│  │  (port n/a)  │   │  (port 8080) │   │      (stdin / stdout)      │  │
-│  └──────┬───────┘   └──────┬───────┘   └─────────────┬──────────────┘  │
-│         │                  │                          │                 │
-│         └──────────────────┴──────────────────────────┘                 │
-│                                    │                                    │
-│                         ┌──────────▼──────────┐                         │
-│                         │   TorrentSessionMgr  │                         │
-│                         │  (multi-torrent hub) │                         │
-│                         └──────────┬──────────┘                         │
-│                                    │                                    │
-│          ┌─────────────────────────┼──────────────────────┐            │
-│          │                         │                       │            │
-│  ┌───────▼────────┐    ┌───────────▼──────┐   ┌──────────▼─────────┐  │
-│  │ TorrentSession │    │  DownloadCoord.  │   │   PieceManager     │  │
-│  │  (per-torrent) │    │  RequestSchedulr │   │   DiskManager      │  │
-│  │  ChokingMgr    │    │  RateLimiter     │   │   StorageVerifier  │  │
-│  │  PeerScorer    │    │  ConnectionLimtr │   │   BlockIndex       │  │
-│  └───────┬────────┘    └───────────┬──────┘   └──────────┬─────────┘  │
-│          │                         │                       │            │
-│          └─────────────────────────┴───────────────────────┘            │
-│                                    │                                    │
-│                         ┌──────────▼──────────┐                         │
-│                         │    Peer Wire Layer   │                         │
-│                         │  Handshake · Bitfld  │                         │
-│                         │  Request · Piece     │                         │
-│                         │  Extended Protocol   │                         │
-│                         └──────────┬──────────┘                         │
-│                                    │                                    │
-│       ┌────────────────────────────┼─────────────────────────┐         │
-│       │                            │                          │         │
-│  ┌────▼─────┐            ┌─────────▼──────┐        ┌────────▼──────┐  │
-│  │  Tracker  │            │   DHT Node     │        │  PEX Manager  │  │
-│  │ HTTP/UDP  │            │ (BEP 5 / Kad.) │        │   (BEP 11)    │  │
-│  └───────────┘            └────────────────┘        └───────────────┘  │
-│                                                                         │
-│  ┌─────────────────────────────────────────────────────────────────┐   │
-│  │                       Support Services                          │   │
-│  │  EventBus · Persistence · Automation · Proxy · RSS · Search     │   │
-│  │  Logging · Plugin System · UPnP · Encryption · Streaming        │   │
-│  └─────────────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────────────┘
++-------------------------------------------------------------------------+
+|                            PeerNexus Runtime                            |
+|                                                                         |
+|  +--------------+   +--------------+   +----------------------------+  |
+|  |  JavaFX GUI  |   |   REST API   |   |     CLI / Terminal UI      |  |
+|  |  (GUI mode)  |   |  (port 8080) |   |     (stdin / stdout)       |  |
+|  +------+-------+   +------+-------+   +-------------+--------------+  |
+|         |                  |                          |                 |
+|         +------------------+--------------------------+                 |
+|                                    |                                    |
+|                         +----------v----------+                         |
+|                         |  TorrentSessionMgr  |                         |
+|                         |  (multi-torrent hub)|                         |
+|                         +----------+----------+                         |
+|                                    |                                    |
+|          +-------------------------+---------------------+              |
+|          |                         |                     |              |
+|  +-------v--------+    +-----------v------+   +---------v----------+  |
+|  | TorrentSession |    | DownloadCoord.   |   |  PieceManager      |  |
+|  | (per-torrent)  |    | RequestScheduler |   |  DiskManager       |  |
+|  | ChokingMgr     |    | RateLimiter      |   |  StorageVerifier   |  |
+|  | PeerScorer     |    | ConnectionLimiter|   |  BlockIndex        |  |
+|  +-------+--------+    +-----------+------+   +---------+----------+  |
+|          |                         |                     |              |
+|          +-------------------------+---------------------+              |
+|                                    |                                    |
+|                         +----------v----------+                         |
+|                         |   Peer Wire Layer   |                         |
+|                         | Handshake  Bitfield |                         |
+|                         | Request    Piece    |                         |
+|                         | Extended Protocol   |                         |
+|                         +----------+----------+                         |
+|                                    |                                    |
+|       +----------------------------+-------------------------+          |
+|       |                            |                         |          |
+|  +----v------+          +----------v-----+        +---------v-----+   |
+|  |  Tracker  |          |   DHT Node     |        |  PEX Manager  |   |
+|  | HTTP/UDP  |          | (BEP 5 / Kad.) |        |   (BEP 11)    |   |
+|  +-----------+          +----------------+        +---------------+   |
+|                                                                         |
+|  +-----------------------------------------------------------------+   |
+|  |                       Support Services                          |   |
+|  |  EventBus  Persistence  Automation  Proxy  RSS  Search          |   |
+|  |  Logging   Plugin System  UPnP  Encryption  Streaming           |   |
+|  +-----------------------------------------------------------------+   |
++-------------------------------------------------------------------------+
 
-Network Layer (outbound / inbound):
-  TCP 6881  ──► Peer wire protocol (upload / download)
-  UDP 6881  ──► DHT queries + UDP tracker announces
-  TCP 8080  ──► REST API
-  TCP 8081  ──► WebSocket stats
+Network Ports:
+  TCP 6881  -->  Peer wire protocol (upload / download)
+  UDP 6881  -->  DHT queries + UDP tracker announces
+  TCP 8080  -->  REST API
+  TCP 8081  -->  WebSocket stats
 ```
 
 ### Component Summary
