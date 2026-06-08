@@ -57,7 +57,7 @@ EXPOSE 6881 6881/udp 8080 8081
 
 # Health check against the REST API
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-    CMD curl -sf http://localhost:8080/api/stats || exit 1
+    CMD curl -sf http://localhost:8080/health || exit 1
 
 # Launch HeadlessServer directly — avoids Application.launch() and JavaFX Glass init.
 ENTRYPOINT ["java", \

@@ -41,6 +41,7 @@ public class WebServer {
         server = HttpServer.create(new InetSocketAddress(port), 0);
         server.setExecutor(executor);
 
+        server.createContext("/health", this::handleHealth);
         server.createContext("/api/torrents", new AuthenticatedHandler(this::handleTorrents));
         server.createContext("/api/stats", new AuthenticatedHandler(this::handleStats));
         server.createContext("/api/peers", new AuthenticatedHandler(this::handlePeers));
@@ -71,6 +72,15 @@ public class WebServer {
 
     public WebSocketStatsPublisher getStatsPublisher() {
         return statsPublisher;
+    }
+
+    private void handleHealth(HttpExchange exchange) throws IOException {
+        byte[] bytes = "{\"status\":\"ok\"}".getBytes(StandardCharsets.UTF_8);
+        exchange.getResponseHeaders().set("Content-Type", "application/json");
+        exchange.sendResponseHeaders(200, bytes.length);
+        try (OutputStream os = exchange.getResponseBody()) {
+            os.write(bytes);
+        }
     }
 
     private void handleTorrents(HttpExchange exchange) throws IOException {
