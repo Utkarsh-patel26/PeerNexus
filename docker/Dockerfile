@@ -59,12 +59,12 @@ EXPOSE 6881 6881/udp 8080 8081
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
     CMD curl -sf http://localhost:8080/api/stats || exit 1
 
-# Default: headless server mode (no JavaFX/GUI required)
+# Launch HeadlessServer directly — avoids Application.launch() and JavaFX Glass init.
 ENTRYPOINT ["java", \
     "-XX:+UseG1GC", \
     "-XX:MaxRAMPercentage=75.0", \
     "-Djava.awt.headless=true", \
-    "-jar", "app.jar"]
+    "-cp", "app.jar", \
+    "com.example.jtorrent.web.HeadlessServer"]
 
-# Override entry point class to HeadlessServer when running in Docker
 CMD ["--port", "8080", "--ws-port", "8081"]
